@@ -1,9 +1,16 @@
 import { useState } from 'react';
-import { Upload, FileCode, Package, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, FileCode, Package, AlertCircle, CheckCircle, Loader2, Plus, X, FolderOpen } from 'lucide-react';
+
+interface ExtraFile {
+  id: string;
+  file: File;
+  content: string | null; // null = binary (images)
+}
 
 function App() {
   const [cFile, setCFile] = useState<File | null>(null);
   const [famFile, setFamFile] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<ExtraFile[]>([]);
   const [firmware, setFirmware] = useState<string>('official');
   const [compiling, setCompiling] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'failed'>('idle');
@@ -19,6 +26,58 @@ function App() {
       if (type === 'c') setCFile(file);
       else setFamFile(file);
     }
+  };
+
+  const handleExtraFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const newExtras: ExtraFile[] = await Promise.all(files.map(async (file) => {
+      const isBinary = file.type.startsWith('image/');
+      let content: string | null = null;
+      if (!isBinary) {
+        content = await file.text();
+      } else {
+        // read as base64
+        content = await new Promise<string>((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+      }
+      return { id: Math.random().toString(36).slice(2), file, content };
+    }));
+    setExtraFiles(prev => [...prev, ...newExtras]);
+    e.target.value = '';
+  };
+
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const newExtras: ExtraFile[] = await Promise.all(files.map(async (file) => {
+      const isBinary = file.type.startsWith('image/');
+      let content: string | null = null;
+      if (!isBinary) {
+        content = await file.text();
+      } else {
+        content = await new Promise<string>((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+      }
+      // preserve folder structure using webkitRelativePath
+      const fileWithPath = new File([file], (file as any).webkitRelativePath || file.name, { type: file.type });
+      return { id: Math.random().toString(36).slice(2), file: fileWithPath, content };
+    }));
+    setExtraFiles(prev => [...prev, ...newExtras]);
+    e.target.value = '';
+  };
+
+  const removeExtra = (id: string) => setExtraFiles(prev => prev.filter(f => f.id !== id));
+
+  const getFileIcon = (name: string) => {
+    if (name.endsWith('.h')) return '📄';
+    if (name.endsWith('.c')) return '📝';
+    if (name.match(/\.(png|jpg|jpeg|bmp)$/)) return '🖼️';
+    return '📁';
   };
 
   const handleCompile = async () => {
@@ -45,6 +104,11 @@ function App() {
           famFileContent: famContent,
           cFileName: cFile.name,
           firmware,
+          extraFiles: extraFiles.map(f => ({
+            name: f.file.name,
+            content: f.content,
+            isBinary: f.file.type.startsWith('image/'),
+          })),
         }),
       });
 
@@ -86,7 +150,7 @@ function App() {
             <div className="mb-6 bg-yellow-900/40 border border-yellow-600 rounded-xl p-5 text-yellow-200">
               <div className="font-bold text-yellow-400 mb-2">⚠️ Compile server not configured</div>
               <p className="text-sm">Add this to your <code className="bg-black/30 px-1 rounded">.env</code> file:</p>
-              <pre className="bg-black/40 rounded p-3 text-xs font-mono mt-2">VITE_COMPILE_SERVER_URL=https://your-railway-app.up.railway.app</pre>
+              <pre className="bg-black/40 rounded p-3 text-xs font-mono mt-2">VITE_COMPILE_SERVER_URL=https://your-render-app.onrender.com</pre>
             </div>
           )}
 
@@ -111,6 +175,48 @@ function App() {
                 <input type="file" accept=".fam" onChange={(e) => handleFileChange(e, 'fam')}
                   className="block w-full text-sm text-slate-300 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 file:cursor-pointer bg-slate-700 rounded-lg border border-slate-600" />
                 {famFile && <p className="mt-2 text-sm text-green-400 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{famFile.name}</p>}
+              </div>
+
+              {/* Extra Files */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-3">
+                  <div className="flex items-center gap-2"><Plus className="w-4 h-4" /> Extra Files <span className="text-slate-500 font-normal">(optional — headers, images, assets)</span></div>
+                </label>
+
+                <div className="flex gap-2 mb-3">
+                  {/* Add files button */}
+                  <label className="flex-1 cursor-pointer">
+                    <div className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 text-slate-300 text-sm font-medium py-2.5 px-4 rounded-lg transition-all">
+                      <Plus className="w-4 h-4" /> Add Files (.c .h .png .jpg)
+                    </div>
+                    <input type="file" multiple accept=".c,.h,.png,.jpg,.jpeg,.bmp" onChange={handleExtraFiles} className="hidden" />
+                  </label>
+
+                  {/* Add folder button */}
+                  <label className="flex-1 cursor-pointer">
+                    <div className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 text-slate-300 text-sm font-medium py-2.5 px-4 rounded-lg transition-all">
+                      <FolderOpen className="w-4 h-4" /> Add Folder
+                    </div>
+                    <input type="file" onChange={handleFolderUpload} className="hidden" {...{ webkitdirectory: '', directory: '' } as any} />
+                  </label>
+                </div>
+
+                {/* File list */}
+                {extraFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {extraFiles.map(f => (
+                      <div key={f.id} className="flex items-center justify-between bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2">
+                        <span className="text-sm text-slate-300 flex items-center gap-2">
+                          {getFileIcon(f.file.name)} {f.file.name}
+                          <span className="text-slate-500 text-xs">({(f.file.size / 1024).toFixed(1)} KB)</span>
+                        </span>
+                        <button onClick={() => removeExtra(f.id)} className="text-slate-500 hover:text-red-400 transition-colors">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Firmware selector */}
