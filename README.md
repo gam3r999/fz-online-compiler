@@ -162,6 +162,8 @@ Or deploy to Render / Railway using the included `Dockerfile`.
 [![Star on GitHub](https://img.shields.io/github/stars/yourusername/fz-online-compiler?style=for-the-badge&color=00e5ff)](https://github.com/gam3r999/fz-online-compiler/)
 [![Open Issues](https://img.shields.io/github/issues/yourusername/fz-online-compiler?style=for-the-badge&color=ff3c6e)](https://github.com/gam3r999/fz-online-compiler/issues)
 
+Known issues: Url compiler not working with huge repos and assets.
+
 ---
 
 <div align="center">
