@@ -94,9 +94,16 @@ function App() {
     setStatus('idle');
     setDownloadUrl('');
 
+    // Ping the server first to wake it up (important for Render free tier cold starts)
+    try {
+      await fetch(`${COMPILE_SERVER}/health`, { method: 'GET' });
+    } catch {
+      // Ignore — server may still respond to compile request
+    }
+
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 180000);
+      const timeout = setTimeout(() => controller.abort(new Error('The compile server took too long to respond (over 3 minutes).\n\nThis usually means:\n• The server is starting up cold — wait 30s and try again\n• The repo/project is too large to compile in time\n• The firmware SDK download stalled\n\nTip: Try clicking Compile again — it often works on the second attempt after the server has warmed up.')), 200000);
 
       let response: Response;
 
@@ -150,7 +157,15 @@ function App() {
       setStatus('success');
 
     } catch (error) {
-      setErrorMsg(error instanceof Error ? error.message : 'Unknown error');
+      let msg = 'Unknown error';
+      if (error instanceof Error) {
+        if (error.name === 'AbortError' || error.message.includes('aborted') || error.message.includes('signal')) {
+          msg = 'The compile server took too long to respond (over 3 min).\n\nThis usually means:\n• The server is starting up cold — wait 30s and try again\n• The firmware SDK download stalled\n\nTip: Click Compile again — it usually works on the second attempt once the server has warmed up.';
+        } else {
+          msg = error.message;
+        }
+      }
+      setErrorMsg(msg);
       setStatus('failed');
     } finally {
       setCompiling(false);
