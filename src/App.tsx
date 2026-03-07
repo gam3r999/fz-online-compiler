@@ -140,8 +140,16 @@ function App() {
       }
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Compilation failed');
+        const text = await response.text();
+        let msg = 'Compilation failed';
+        try {
+          const err = JSON.parse(text);
+          msg = err.error || msg;
+        } catch {
+          // Server returned non-JSON (HTML error page) — show status + hint
+          msg = `Server error ${response.status}: ${response.statusText}\n\nThe compile server may be misconfigured or unreachable.\nCheck that VITE_COMPILE_SERVER_URL is set correctly in Vercel and redeploy.`;
+        }
+        throw new Error(msg);
       }
 
       clearTimeout(timeout);
