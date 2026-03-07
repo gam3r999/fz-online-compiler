@@ -119,11 +119,7 @@ function App() {
         });
       } else {
         let cContent   = await cFile!.text();
-        let famContent = await famFile!.text();
-
-        if ("App(" in cContent || "appid=" in cContent) {
-          const tmp = cContent; cContent = famContent; famContent = tmp;
-        }
+        let famContent = famFile ? await famFile.text() : '';
 
         response = await fetch(`${COMPILE_SERVER}/compile`, {
           method: 'POST',
