@@ -146,8 +146,14 @@ function App() {
           const err = JSON.parse(text);
           msg = err.error || msg;
         } catch {
-          // Server returned non-JSON (HTML error page) — show status + hint
-          msg = `Server error ${response.status}: ${response.statusText}\n\nThe compile server may be misconfigured or unreachable.\nCheck that VITE_COMPILE_SERVER_URL is set correctly in Vercel and redeploy.`;
+          // Server returned non-JSON (HTML error page)
+          if (response.status === 404) {
+            msg = `404: Compile server endpoint not found.\nCheck that VITE_COMPILE_SERVER_URL is set correctly in Vercel (no trailing slash) and redeploy.`;
+          } else if (response.status === 502 || response.status === 503) {
+            msg = `Server is starting up (${response.status}). Wait 30 seconds and try again.`;
+          } else {
+            msg = `Server error ${response.status} — check your Render logs for the crash details.`;
+          }
         }
         throw new Error(msg);
       }
