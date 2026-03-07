@@ -93,8 +93,14 @@ function App() {
     setDownloadUrl('');
 
     try {
-      const cContent   = await cFile.text();
-      const famContent = await famFile.text();
+      let cContent   = await cFile.text();
+      let famContent = await famFile.text();
+
+      // Auto-fix: if files are swapped, silently correct them
+      if (!cContent.trim().startsWith("#include") && !cContent.trim().startsWith("//") &&
+          (famContent.trim().startsWith("#include") || famContent.trim().startsWith("//-"))) {
+        const tmp = cContent; cContent = famContent; famContent = tmp;
+      }
 
       const response = await fetch(`${COMPILE_SERVER}/compile`, {
         method: 'POST',
