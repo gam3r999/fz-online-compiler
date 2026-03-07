@@ -94,16 +94,19 @@ function App() {
     setStatus('idle');
     setDownloadUrl('');
 
-    // Ping the server first to wake it up (important for Render free tier cold starts)
-    try {
-      await fetch(`${COMPILE_SERVER}/health`, { method: 'GET' });
-    } catch {
-      // Ignore — server may still respond to compile request
-    }
+    // Wake up the server and keep pinging while compiling
+    // (Render free tier sleeps after 15min — this prevents mid-compile timeouts)
+    const wakeAndKeepAlive = async () => {
+      for (let i = 0; i < 20; i++) {
+        try { await fetch(`${COMPILE_SERVER}/health`, { method: 'GET' }); } catch {}
+        await new Promise(r => setTimeout(r, 20000)); // ping every 20s
+      }
+    };
+    wakeAndKeepAlive();
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(new Error('The compile server took too long to respond (over 3 minutes).\n\nThis usually means:\n• The server is starting up cold — wait 30s and try again\n• The repo/project is too large to compile in time\n• The firmware SDK download stalled\n\nTip: Try clicking Compile again — it often works on the second attempt after the server has warmed up.')), 200000);
+      const timeout = setTimeout(() => controller.abort(new Error('The compile server took too long to respond (over 3 minutes).\n\nThis usually means:\n• The server is starting up cold — wait 30s and try again\n• The repo/project is too large to compile in time\n• The firmware SDK download stalled\n\nTip: Try clicking Compile again — it often works on the second attempt after the server has warmed up.')), 420000);
 
       let response: Response;
 
