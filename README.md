@@ -13,9 +13,9 @@
 
 Upload your `.c` and `.fam` files. Get a real `.fap` back. No install. No BS.
 
-[![Compile Now](https://img.shields.io/badge/▶%20COMPILE%20NOW-00e5ff?style=for-the-badge&logoColor=black)](https://your-site.com)
-[![Free Forever](https://img.shields.io/badge/FREE%20FOREVER-b4ff3c?style=for-the-badge&logoColor=black)](https://your-site.com)
-[![No Account](https://img.shields.io/badge/NO%20ACCOUNT%20NEEDED-ff3c6e?style=for-the-badge&logoColor=white)](https://your-site.com)
+[![Compile Now](https://img.shields.io/badge/▶%20COMPILE%20NOW-00e5ff?style=for-the-badge&logoColor=black)](https://fz-online-compiler.vercel.app/)
+[![Free Forever](https://img.shields.io/badge/FREE%20FOREVER-b4ff3c?style=for-the-badge&logoColor=black)](https://fz-online-compiler.vercel.app/)
+[![No Account](https://img.shields.io/badge/NO%20ACCOUNT%20NEEDED-ff3c6e?style=for-the-badge&logoColor=white)](https://fz-online-compiler.vercel.app/)
 
 ---
 
