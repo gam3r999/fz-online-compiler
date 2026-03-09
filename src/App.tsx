@@ -80,7 +80,7 @@ function App() {
     return '📁';
   };
 
-  const canCompile = mode === 'git' ? gitUrl.trim() !== '' : (cFile !== null && famFile !== null);
+  const canCompile = mode === 'git' ? gitUrl.trim() !== '' : cFile !== null;
 
   const handleCompile = async () => {
     if (!canCompile) return;
@@ -224,11 +224,14 @@ function App() {
                   {/* FAM File */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-3">
-                      <div className="flex items-center gap-2"><FileCode className="w-4 h-4" /> FAM Manifest File (.fam)</div>
+                      <div className="flex items-center gap-2"><FileCode className="w-4 h-4" /> FAM Manifest File (.fam) <span className="text-slate-500 font-normal">(optional — auto-generated if missing)</span></div>
                     </label>
                     <input type="file" accept=".fam" onChange={(e) => handleFileChange(e, 'fam')}
                       className="block w-full text-sm text-slate-300 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 file:cursor-pointer bg-slate-700 rounded-lg border border-slate-600" />
-                    {famFile && <p className="mt-2 text-sm text-green-400 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{famFile.name}</p>}
+                    {famFile
+                      ? <p className="mt-2 text-sm text-green-400 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{famFile.name}</p>
+                      : <p className="mt-2 text-xs text-slate-500">No .fam uploaded — the server will auto-generate one from your .c file</p>
+                    }
                   </div>
 
                   {/* Extra Files */}
