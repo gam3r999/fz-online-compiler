@@ -111,7 +111,7 @@ function App() {
         let cContent   = await cFile!.text();
         let famContent = await famFile!.text();
 
-        if ("App(" in cContent || "appid=" in cContent) {
+        if (cContent.includes("App(") || cContent.includes("appid=")) {
           const tmp = cContent; cContent = famContent; famContent = tmp;
         }
 
