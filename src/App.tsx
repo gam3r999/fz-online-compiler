@@ -30,24 +30,20 @@ function App() {
     }
   };
 
-  const isBinaryFile = (file: File) =>
-    file.type.startsWith('image/') || /\.(png|jpg|jpeg|bmp|gif)$/i.test(file.name);
-
-  const readFile = async (file: File): Promise<string> => {
-    if (isBinaryFile(file)) {
-      return new Promise<string>((res) => {
-        const reader = new FileReader();
-        reader.onload = () => res((reader.result as string).split(',')[1]);
-        reader.readAsDataURL(file);
-      });
-    }
-    return file.text();
-  };
-
   const handleExtraFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const newExtras: ExtraFile[] = await Promise.all(files.map(async (file) => {
-      const content = await readFile(file);
+      const isBinary = file.type.startsWith('image/') || /\.(png|jpg|jpeg|bmp|gif)$/i.test(file.name);
+      let content: string | null = null;
+      if (!isBinary) {
+        content = await file.text();
+      } else {
+        content = await new Promise<string>((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+      }
       return { id: Math.random().toString(36).slice(2), file, content };
     }));
     setExtraFiles(prev => [...prev, ...newExtras]);
@@ -57,7 +53,17 @@ function App() {
   const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const newExtras: ExtraFile[] = await Promise.all(files.map(async (file) => {
-      const content = await readFile(file);
+      const isBinary = file.type.startsWith('image/') || /\.(png|jpg|jpeg|bmp|gif)$/i.test(file.name);
+      let content: string | null = null;
+      if (!isBinary) {
+        content = await file.text();
+      } else {
+        content = await new Promise<string>((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res((reader.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+      }
       const fileWithPath = new File([file], (file as any).webkitRelativePath || file.name, { type: file.type });
       return { id: Math.random().toString(36).slice(2), file: fileWithPath, content };
     }));
@@ -74,7 +80,7 @@ function App() {
     return '📁';
   };
 
-  const canCompile = mode === 'git' ? gitUrl.trim() !== '' : cFile !== null;
+  const canCompile = mode === 'git' ? gitUrl.trim() !== '' : (cFile !== null && famFile !== null);
 
   const handleCompile = async () => {
     if (!canCompile) return;
@@ -88,17 +94,9 @@ function App() {
     setStatus('idle');
     setDownloadUrl('');
 
-    const wakeAndKeepAlive = async () => {
-      for (let i = 0; i < 20; i++) {
-        try { await fetch(`${COMPILE_SERVER}/health`, { method: 'GET' }); } catch {}
-        await new Promise(r => setTimeout(r, 20000));
-      }
-    };
-    wakeAndKeepAlive();
-
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(new Error('The compile server took too long to respond (over 3 minutes).\n\nThis usually means:\n• The server is starting up cold — wait 30s and try again\n• The repo/project is too large to compile in time\n• The firmware SDK download stalled\n\nTip: Try clicking Compile again — it often works on the second attempt after the server has warmed up.')), 420000);
+      const timeout = setTimeout(() => controller.abort(), 360000);
 
       let response: Response;
 
@@ -111,7 +109,11 @@ function App() {
         });
       } else {
         let cContent   = await cFile!.text();
-        let famContent = famFile ? await famFile.text() : '';
+        let famContent = await famFile!.text();
+
+        if ("App(" in cContent || "appid=" in cContent) {
+          const tmp = cContent; cContent = famContent; famContent = tmp;
+        }
 
         response = await fetch(`${COMPILE_SERVER}/compile`, {
           method: 'POST',
@@ -125,28 +127,15 @@ function App() {
             extraFiles: extraFiles.map(f => ({
               name: f.file.name,
               content: f.content,
-              isBinary: isBinaryFile(f.file),
+              isBinary: f.file.type.startsWith('image/') || /\.(png|jpg|jpeg|bmp|gif)$/i.test(f.file.name),
             })),
           }),
         });
       }
 
       if (!response.ok) {
-        const text = await response.text();
-        let msg = 'Compilation failed';
-        try {
-          const err = JSON.parse(text);
-          msg = err.error || msg;
-        } catch {
-          if (response.status === 404) {
-            msg = `404: Compile server endpoint not found.\nCheck that VITE_COMPILE_SERVER_URL is set correctly in Vercel (no trailing slash) and redeploy.`;
-          } else if (response.status === 502 || response.status === 503) {
-            msg = `Server is starting up (${response.status}). Wait 30 seconds and try again.`;
-          } else {
-            msg = `Server error ${response.status} — check your Render logs for the crash details.`;
-          }
-        }
-        throw new Error(msg);
+        const err = await response.json();
+        throw new Error(err.error || 'Compilation failed');
       }
 
       clearTimeout(timeout);
@@ -161,15 +150,7 @@ function App() {
       setStatus('success');
 
     } catch (error) {
-      let msg = 'Unknown error';
-      if (error instanceof Error) {
-        if (error.name === 'AbortError' || error.message.includes('aborted') || error.message.includes('signal')) {
-          msg = 'The compile server took too long to respond (over 3 min).\n\nThis usually means:\n• The server is starting up cold — wait 30s and try again\n• The firmware SDK download stalled\n\nTip: Click Compile again — it usually works on the second attempt once the server has warmed up.';
-        } else {
-          msg = error.message;
-        }
-      }
-      setErrorMsg(msg);
+      setErrorMsg(error instanceof Error ? error.message : 'Unknown error');
       setStatus('failed');
     } finally {
       setCompiling(false);
@@ -213,6 +194,7 @@ function App() {
               </div>
 
               {mode === 'git' ? (
+                /* GitHub URL mode */
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-3">
                     <div className="flex items-center gap-2"><Github className="w-4 h-4" /> GitHub Repository URL</div>
@@ -227,6 +209,7 @@ function App() {
                   <p className="mt-2 text-xs text-slate-500">Paste any public Flipper Zero app GitHub URL and we'll clone + compile it automatically</p>
                 </div>
               ) : (
+                /* File upload mode */
                 <>
                   {/* C File */}
                   <div>
@@ -241,14 +224,11 @@ function App() {
                   {/* FAM File */}
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-3">
-                      <div className="flex items-center gap-2"><FileCode className="w-4 h-4" /> FAM Manifest File (.fam) <span className="text-slate-500 font-normal">(optional — auto-generated if missing)</span></div>
+                      <div className="flex items-center gap-2"><FileCode className="w-4 h-4" /> FAM Manifest File (.fam)</div>
                     </label>
                     <input type="file" accept=".fam" onChange={(e) => handleFileChange(e, 'fam')}
                       className="block w-full text-sm text-slate-300 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600 file:cursor-pointer bg-slate-700 rounded-lg border border-slate-600" />
-                    {famFile
-                      ? <p className="mt-2 text-sm text-green-400 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{famFile.name}</p>
-                      : <p className="mt-2 text-xs text-slate-500">No .fam uploaded — the server will auto-generate one from your .c file</p>
-                    }
+                    {famFile && <p className="mt-2 text-sm text-green-400 flex items-center gap-2"><CheckCircle className="w-4 h-4" />{famFile.name}</p>}
                   </div>
 
                   {/* Extra Files */}
